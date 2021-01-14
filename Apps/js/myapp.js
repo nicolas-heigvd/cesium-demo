@@ -1,4 +1,4 @@
-
+debug = true;
 
 //Austria
 var north = 47.24387
@@ -22,6 +22,7 @@ var east = 7.14634
 //console.log("east: ", east);
 const rectangle = Cesium.Rectangle.fromDegrees(west, south, east, north);
 
+// Cesium viewer
 const viewer = new Cesium.Viewer('cesiumContainer', {
     animation: false,
     baseLayerPicker: true,
@@ -54,8 +55,10 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
     }),
 
 });
+
 //viewer.extend(Cesium.viewerCesiumInspectorMixin);
 
+// Globally scoped constants about the environment
 const scene = viewer.scene;
 const canvas = viewer.canvas;
 const globe = scene.globe;
@@ -67,8 +70,13 @@ console.log("ellipsoid: ",ellipsoid);
 //Cesium.Camera.DEFAULT_VIEW_FACTOR = 0;
 //Cesium.Camera.DEFAULT_VIEW_RECTANGLE = rectangle;
 
+/*
+Set Field of View, you may want to adapt the multiplication factor depending on
+the focal of the image
+*/
 camera.frustum.fov = 0.9*Cesium.Math.PI_OVER_THREE
 globe.depthTestAgainstTerrain = true;
+
 /*
 globe._surface._debug.wireframe = true;
 new Cesium.CesiumInspectorViewModel(scene);
@@ -80,18 +88,19 @@ canvas.onclick = function() {
     canvas.focus();
 };
 
-trig_sscc = false; // lock
+trig_sscc = false; // lock camera
 sscc.enableRotate = trig_sscc;
 sscc.enableTranslate = trig_sscc;
 sscc.enableZoom = trig_sscc;
 sscc.enableTilt = trig_sscc;
 sscc.enableLook = trig_sscc;
 
-// disable the default event handlers
+// Disable the default event handlers
+// Set lock/unlock button function
 console.log("doc:", document.getElementById('btn-lockCam').innerHTM);
 const lockCam = () => {
     if (document.getElementById('btn-lockCam').innerHTML.includes('&nbsp;LockCam')) {
-        trig_sscc = false; // lock
+        trig_sscc = false; // lock camera
         sscc.enableRotate = trig_sscc;
         sscc.enableTranslate = trig_sscc;
         sscc.enableZoom = trig_sscc;
@@ -99,7 +108,7 @@ const lockCam = () => {
         sscc.enableLook = trig_sscc;
         document.getElementById('btn-lockCam').innerHTML = '<i class="fas fa-unlock"></i>&nbsp;UnlockCam';
     } else if (document.getElementById('btn-lockCam').innerHTML.includes('&nbsp;UnlockCam')) {
-        trig_sscc = true; // unlock
+        trig_sscc = true; // unlock camera
         sscc.enableRotate = trig_sscc;
         sscc.enableTranslate = trig_sscc;
         sscc.enableZoom = trig_sscc;
@@ -109,6 +118,7 @@ const lockCam = () => {
     }
 }
 
+// Set show image button
 const showimage = () => {
     console.log("infunction: ")
     for (i = 0, len = modelList.length; i < len; i++) {
@@ -132,8 +142,22 @@ const flags = {
     moveRight: false
 };
 
+// Load GEOJSON feature of the image frame from file
 const feat_file = './geojson/25443.geojson';
 
+// Convenience functions:
+// Convert point array to Cartesian3
+const transform2DPointArrayToCartesian = (pointArray) => {
+    return new Cesium.Cartesian3.fromDegrees(...pointArray);
+}
+
+const transform3DPointArrayToCartesian = (pointArray1, pointArray2) => {
+     return new Cesium.Cartesian3.fromDegreesArrayHeights([
+        ...(pointArray1.concat(pointArray2))
+    ])
+}
+
+// Fetch the image frame GEOJSON file
 const fetchFile = async () => {
     let res = await fetch(feat_file);
     let feat = await res.json();
@@ -141,135 +165,103 @@ const fetchFile = async () => {
 }
 
 
-fetchFile().then(feat => {
-    document.querySelector('#btn-lockCam').addEventListener('click', lockCam);
-    const p0     = [7.14267, 45.88358, 2528.0];
-    //const p1     = [7.13963, 45.88325, 2515];
-    ////const p1     = [7.1409409,   45.8830364, 2523.2039282]; // physical image center
-    const p1     = feat.features[0].properties.imageCenter.split(',');;
-    const p2     = [7.09289, 45.88267, 2474.8];
-    const point0 = new Cesium.Cartesian3.fromDegrees(...p0);
-    const imagePhysicalCenter = new Cesium.Cartesian3.fromDegrees(...p1);
-    //const campos0 = [ 7.14320, 45.88369, 2535 ];
-    //const campos0 =  [ 7.1424558,   45.8836527, 2519.3311016];
-    //const campos0 = [west, north, 100]; // brazil
-    const campos0 = feat.features[0].properties.camPos.split(',');
-    const campos = new Cesium.Cartesian3.fromDegrees(...campos0);
-    const campos_rad = new Cesium.Cartographic.fromDegrees(...campos0);
+// Call of the main function only once the file has been loaded
+fetchFile().then(feat =>  {
+    main(feat)
+});
 
-    const goToModel = () => {
-        camera.setView({
-            destination: campos, // Cartesian3
-            orientation: {
-                heading: Cesium.Math.toRadians(-1*feat.features[0].properties.yaw),  // heading
-                pitch: Cesium.Math.toRadians(1*feat.features[0].properties.pitch),    // pitch -6
-                roll: Cesium.Math.toRadians(0*feat.features[0].properties.roll) //).585)      // roll
-            }
-        });
-    };
-    console.log("Doucment: ", document.querySelector('#btn-goToModel'));
-    document.querySelector('#btn-goToModel').addEventListener('click', goToModel);
-
-    const flyToModel = () => {
-        camera.flyTo({
-            destination: campos, // Cartesian3
-            orientation: {
-                heading: Cesium.Math.toRadians(-1*feat.features[0].properties.yaw),  // heading
-                pitch: Cesium.Math.toRadians(1*feat.features[0].properties.pitch),    // pitch -6
-                roll: Cesium.Math.toRadians(0*feat.features[0].properties.roll) //).585)      // roll
-            }
-        });
-    };
-    document.querySelector('#btn-flyToModel').addEventListener('click', flyToModel);
-
-    camera.setView({
-        destination: campos, // your own position as a cartesian3
-        orientation: {
-            heading : Cesium.Math.toRadians(-1*feat.features[0].properties.yaw),   // heading
-            pitch   : Cesium.Math.toRadians(1*feat.features[0].properties.pitch),    // pitch -6
-            roll    : Cesium.Math.toRadians(0*feat.features[0].properties.roll) //).585)      // roll
-        }
-    });
-
-    console.log("camPos: ", feat.features[0].properties.camPos);
-    console.log("yaw: ", feat.features[0].properties.yaw);
-    console.log("pitch: ", feat.features[0].properties.pitch);
-    console.log("roll: ", feat.features[0].properties.roll);
-
-    /*
-    const corridor = viewer.entities.add({
-        id: 'myCorridor',
-        name: "my corridor",
-        corridor: {
-            positions: Cesium.Cartesian3.fromDegreesArray([
-                ...(campos0.slice(0,2).concat(p2.slice(0,2)))
-            ]),
-            width: 2,
-            material: Cesium.Color.AQUA
-        }
-    });
-    console.log("corridor: ",corridor.corridor.positions);
-    /**/
-        if (true === false) {
-        let polylineEntities = [];
-        polylineEntities.push(viewer.entities.add({
-            polyline : {
-                positions : Cesium.Cartesian3.fromDegreesArray([
-                    ...(campos0.slice(0,2).concat(p2.slice(0,2)))
-                ]),
-                width : 4.0,
-                material : Cesium.Color.AQUAMARINE,
-                clampToGround : true
-            }
-        }));
+class GeoPose {
+    constructor(feat) {
+        // This is the physical image center; it comes from the feature properties
+        this.imagePhysicalCenterArray = feat.features[0].properties.imageCenter.split(',');
+        this.imagePhysicalCenter = transform2DPointArrayToCartesian(this.imagePhysicalCenterArray); // Cartesian3
+        // This is the camera position, it's not equal to the physical image center
+        this.camPosArray = feat.features[0].properties.camPos.split(',');
+        this.camPos = transform2DPointArrayToCartesian(this.camPosArray); // Cartesian3
+        // orientation angles
+        this.yaw = feat.features[0].properties.yaw;
+        this.pitch = feat.features[0].properties.pitch;
+        this.roll = feat.features[0].properties.roll;
     }
-    /*
-    let corridorEntities = [];
-    corridorEntities.push(viewer.entities.add({
-        corridor : {
-            positions : Cesium.Cartesian3.fromDegreesArray([
-                ...(campos0.slice(0,2).concat(p2.slice(0,2)))
-            ]),
-            width : 3.0,
-            material : new Cesium.Color(0, 1, 0, 0.5),
-            //cornerType: Cesium.CornerType.MITERED,
-            //classificationType : Cesium.ClassificationType.TERRAIN
+}
+
+const goToModel = (geopose) => {
+    camera.setView({
+        destination: geopose.camPos, // Cartesian3
+        orientation: {
+            heading: Cesium.Math.toRadians(-1*geopose.yaw),  // heading
+            pitch: Cesium.Math.toRadians(1*geopose.pitch),   // pitch
+            roll: Cesium.Math.toRadians(0*geopose.roll)      // roll
         }
-    }));
-    /**/
+    });
+};
+
+const flyToModel = (geopose) => {
+    camera.flyTo({
+        destination: geopose.camPos, // Cartesian3
+        orientation: {
+            heading: Cesium.Math.toRadians(-1*geopose.yaw),  // heading
+            pitch: Cesium.Math.toRadians(1*geopose.pitch),   // pitch
+            roll: Cesium.Math.toRadians(0*geopose.roll)      // roll
+        }
+    });
+};
 
 
+class ImagePlaneGeometry {
+    constructor(geopose) {
+        this.geopose = geopose;
+        // Declare constants
+        this.focalDirection = new Cesium.Cartesian3();
+        this.imagePlaneNormal = new Cesium.Cartesian3();
+        this.imagePosition = new Cesium.Cartesian3();
 
-    const computeImagePosition = (viewer, campos, imagePhysicalCenter) => {
-        const focalDirection = new Cesium.Cartesian3();
-        const imagePlaneNormal = new Cesium.Cartesian3();
-        const imagePosition = new Cesium.Cartesian3();
-        Cesium.Cartesian3.subtract(imagePhysicalCenter, campos, focalDirection);
-        const focalRay = new Cesium.Ray(campos, focalDirection);
-        Cesium.Cartesian3.normalize(focalDirection, imagePlaneNormal);
-        const imagePlane = new Cesium.Plane.fromPointNormal(imagePhysicalCenter, imagePlaneNormal);
-        Cesium.IntersectionTests.rayPlane(focalRay, imagePlane, imagePosition);
-        if (true === false) {
-            console.log("focalDirection:", focalDirection);
-            console.log("ImagePlaneNormal:", imagePlaneNormal);
-            console.log("focalRay:", focalRay);
-            console.log("imagePlane:", imagePlane);
-            console.log("imagePosition:", imagePosition);
-            /**/
+        Cesium.Cartesian3.subtract(
+            this.geopose.imagePhysicalCenter, // Cartesian3
+            this.geopose.camPos, // Cartesian3
+            this.focalDirection // result
+        );
+        // Compute the focal ray
+        this.focalRay = new Cesium.Ray(
+            this.geopose.camPos,
+            this.focalDirection
+        );
+        // Get the norm of the focalRay
+        Cesium.Cartesian3.normalize(
+            this.focalDirection,
+            this.imagePlaneNormal // result
+        );
+        // Compute the image plane
+        this.imagePlane = new Cesium.Plane.fromPointNormal(
+            this.geopose.imagePhysicalCenter,
+            this.imagePlaneNormal
+        );
+        // Compute the intersection of the ray with the image plane
+        Cesium.IntersectionTests.rayPlane(
+            this.focalRay,
+            this.imagePlane,
+            this.imagePosition // result
+        );
+
+        if (debug === true) {
+            console.log("focalDirection:", this.focalDirection);
+            console.log("ImagePlaneNormal:", this.imagePlaneNormal);
+            console.log("focalRay:", this.focalRay);
+            console.log("imagePlane:", this.imagePlane);
+            console.log("imagePosition:", this.imagePosition);
         }
         const line_start = viewer.entities.add({
             name : 'p0',
-            position : campos,
+            position : this.geopose.camPos,
             point : {
                 pixelSize : 10,
                 color : Cesium.Color.YELLOW
             }
         });
-
-        if (true === false) {
+        if (debug === true) {
             const line_end = viewer.entities.add({
                 name : 'p1',
-                position : imagePhysicalCenter,
+                position : this.imagePhysicalCenter,
                 point : {
                     pixelSize : 10,
                     color : Cesium.Color.RED
@@ -278,20 +270,19 @@ fetchFile().then(feat => {
         } else {
             const image_center = viewer.entities.add({
                 name : 'image_center',
-                position : imagePosition,
+                position : this.imagePosition,
                 point : {
                     pixelSize : 10,
                     color : Cesium.Color.AQUA
                 }
             });
         }
-
-        if (true === false) {
+        if (debug === false) {
             const lineOfSight = viewer.entities.add({
                 polyline : {
-                    positions : Cesium.Cartesian3.fromDegreesArrayHeights([
-                        ...(campos0.concat(p1))
-                    ]),
+                    positions : transform3DPointArrayToCartesian(
+                        this.geopose.camPosArray.concat(this.geopose.imagePhysicalCenterArray)
+                    ),
                     width : 4,
                     material : new Cesium.PolylineGlowMaterialProperty({
                         glowPower : 0.5,
@@ -300,41 +291,40 @@ fetchFile().then(feat => {
                 }
             });
         }
-        return imagePosition;
     }
+}
 
-    const computeImagePositionPromise = async () => {
-        const imagePosition = await computeImagePosition(viewer, campos, imagePhysicalCenter);
-        try {
-            console.log("ImPos: ", imagePosition);
-        } catch (e) {
-            console.log("Error: ", e);
-        }
-    };
-
-    computeImagePositionPromise();
+const computeImagePosition = (geopose) => {
+    return new ImagePlaneGeometry(geopose);
+}
 
 
-    /*
-    const picture = viewer.entities.add({
-        name: 'photo',
-        polygon : {
-            hierarchy: Cesium.Cartesian3.fromDegreesArrayHeights([
-                7.0665543, 45.9754425, 2650.1965260,
-                7.0658164, 45.9771583, 2668.8373657,
-                7.0657976, 45.9770379, 2801.3547926,
-                7.0665355, 45.9753221, 2782.7139534,
-                7.0665543, 45.9754425, 2650.1965265
-            ]),
-            material : new Cesium.ImageMaterialProperty({
-                image: feat.features[0].properties.imagePath,
-                alpha: 0.5
-            }),
-            outline: true,
-            outlineColor: Cesium.Color.ORANGE,
+const main = (feat) => {
+    document.querySelector('#btn-lockCam').addEventListener('click', lockCam);
+
+    const geopose = new GeoPose(feat);
+
+    console.log("Document: ", document.querySelector('#btn-goToModel'));
+    document.querySelector('#btn-goToModel').addEventListener('click', () => {goToModel(geopose)});
+    document.querySelector('#btn-flyToModel').addEventListener('click', () => {flyToModel(geopose)});
+
+    // Set initial camera view
+    camera.setView({
+        destination: geopose.camPos, // your own position as a cartesian3
+        orientation: {
+            heading : Cesium.Math.toRadians(-1*geopose.yaw),   // heading
+            pitch   : Cesium.Math.toRadians(1*geopose.pitch),  // pitch
+            roll    : Cesium.Math.toRadians(0*geopose.roll)    // roll
         }
     });
-    /**/
+
+    console.log("camPos: ", geopose.camPos);
+    console.log("yaw: ", geopose.yaw);
+    console.log("pitch: ", geopose.pitch);
+    console.log("roll: ", geopose.roll);
+
+    const imagePosition = computeImagePosition(geopose);
+    console.log("ImPos: ", imagePosition);
 
     const GeoJSONPromise = async () => {
         try {
@@ -400,7 +390,7 @@ fetchFile().then(feat => {
         const gltf_file = './gltf/glacier1.gltf';
         // eastNorthUpToFixedFrame northEastDownToFixedFrame
         const modelMatrix = Cesium.Transforms.northEastDownToFixedFrame(
-            campos
+            geopose.camPos
         );
         const model = scene.primitives.add(Cesium.Model.fromGltf({
             url: gltf_file,
@@ -417,7 +407,7 @@ fetchFile().then(feat => {
     if (true === false) {
         const gltf_file = './gltf/dslr_camera/scene.gltf';
         const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(
-            campos
+            geopose.camPos
         );
         const model = scene.primitives.add(Cesium.Model.fromGltf({
             url : gltf_file,
@@ -572,7 +562,11 @@ fetchFile().then(feat => {
     // run the actual ray intersection with the globe
     if (true == false) {
         globe.tileLoadProgressEvent.addEventListener(
-            tiles => computeIntersectionWithGlobe(campos, imagePhysicalCenter, tiles)
+            tiles => computeIntersectionWithGlobe(
+                geopose.camPos,
+                geopose.imagePhysicalCenter,
+                tiles
+            )
         );
     }
 
@@ -602,13 +596,26 @@ fetchFile().then(feat => {
             console.log("clickedObject id polygon: ", (clickedObject[0].id.polygon));
             console.log("clickedObject id: ", (clickedObject[0].id));
             console.log("TerrainPosition: ", TerrainPosition);
-            const retval = computeIntersectionWithGlobe(campos, imagePhysicalCenter);
+
+            const retval = computeIntersectionWithGlobe(
+                geopose.camPos,
+                geopose.imagePhysicalCenter
+            );
             console.log("retval: ", retval);
-            const ImagePlane = Cesium.Plane.fromPointNormal(imagePhysicalCenter, retval.ray.direction);
+            const ImagePlane = Cesium.Plane.fromPointNormal(
+                geopose.imagePhysicalCenter,
+                retval.ray.direction
+            );
             console.log("ImagePlane: ", ImagePlane);
             if (TerrainPosition != null || typeof(TerrainPosition) != 'undefined') {
-                const intersection = computeIntersectionWithGlobe(campos, TerrainPosition);
-                const imagePosition = Cesium.IntersectionTests.rayPlane(intersection.ray, ImagePlane);
+                const intersection = computeIntersectionWithGlobe(
+                    geopose.camPos,
+                    TerrainPosition
+                );
+                const imagePosition = Cesium.IntersectionTests.rayPlane(
+                    intersection.ray,
+                    ImagePlane
+                );
                 console.log("imagePosition: ", imagePosition);
                 viewer.entities.add({
                     name : 'pt',
@@ -673,4 +680,5 @@ fetchFile().then(feat => {
         console.log("ImagePoints are: ", imagePoints);
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
     /**/
-});
+};
+
