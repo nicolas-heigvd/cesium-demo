@@ -1,4 +1,6 @@
-debug = true;
+import { MAPTILER_TOKEN, MAPBOX_TOKEN, CESIUMION_TOKEN } from './config.js';
+
+const debug = true;
 
 //Austria
 var north = 47.24387
@@ -47,9 +49,10 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
         })
     }),
 
-
     terrainProvider: new Cesium.CesiumTerrainProvider({
+        //url: `https://api.maptiler.com/tiles/terrain-quantized-mesh/?key=${MAPTILER_TOKEN}`,
         url : '//3d.geo.admin.ch/1.0.0/ch.swisstopo.terrain.3d/default/20200520/4326/',
+        //url: `${AUSTRIA_TERRAIN_URL}`,
         availableLevels: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,19],
         rectangle: rectangle // Doesn't work without
     }),
@@ -57,6 +60,18 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 });
 
 //viewer.extend(Cesium.viewerCesiumInspectorMixin);
+//viewer.scene.primitives.add(Cesium.createOsmBuildings());
+let swisstlm3d = viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
+    url : 'https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.swisstlm3d.3d/20201020/tileset.json'
+}));
+
+let swissnames3d = viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
+    url: 'https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.swissnames3d.3d/20180716/tileset.json'
+}));
+
+let vegetation3d = viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
+    url : 'https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.vegetation.3d/20190313/tileset.json'
+}));
 
 // Globally scoped constants about the environment
 const scene = viewer.scene;
@@ -88,7 +103,7 @@ canvas.onclick = function() {
     canvas.focus();
 };
 
-trig_sscc = false; // lock camera
+let trig_sscc = false; // lock camera
 sscc.enableRotate = trig_sscc;
 sscc.enableTranslate = trig_sscc;
 sscc.enableZoom = trig_sscc;
@@ -185,6 +200,7 @@ class GeoPose {
     }
 }
 
+
 const goToModel = (geopose) => {
     camera.setView({
         destination: geopose.camPos, // Cartesian3
@@ -195,6 +211,21 @@ const goToModel = (geopose) => {
         }
     });
 };
+
+
+const goToHeadingPitchRoll = () => {
+  camera.frustum.fov = 1*Cesium.Math.PI_OVER_TWO;
+  viewer.camera.setView({
+    destination: Cesium.Cartesian3.fromDegrees(
+       	9.54341, 47.28139, 540.0
+    ),
+    orientation: {
+      heading: Cesium.Math.toRadians(94.0),
+      pitch: Cesium.Math.toRadians(-40.0),
+      roll: Cesium.Math.toRadians(0.0),
+    },
+  });
+}
 
 const flyToModel = (geopose) => {
     camera.flyTo({
@@ -307,6 +338,7 @@ const main = (feat) => {
     console.log("Document: ", document.querySelector('#btn-goToModel'));
     document.querySelector('#btn-goToModel').addEventListener('click', () => {goToModel(geopose)});
     document.querySelector('#btn-flyToModel').addEventListener('click', () => {flyToModel(geopose)});
+    document.querySelector('#btn-goToHeadingPitchRoll').addEventListener('click', () => {goToHeadingPitchRoll()});
 
     // Set initial camera view
     camera.setView({
@@ -581,8 +613,8 @@ const main = (feat) => {
         flags.looking = true;
         mousePosition = startMousePosition = Cesium.Cartesian3.clone(movement.position);
         const clickedObject = scene.drillPick(movement.position);
-        if (clickedObject[0] === null || typeof(clickedObject[0]) === 'undefined') {
-            console.log("Point clicked does not pass throxugh the image frame.")
+        if (clickedObject[0] === null || typeof(clickedObject[0]) === 'undefined' || 1<=0) {
+            console.log("Point clicked does not pass through the image frame.")
         } else {
             const ray = camera.getPickRay(movement.position);
             const TerrainPosition = globe.pick(ray, scene);
