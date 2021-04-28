@@ -61,17 +61,22 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 
 //viewer.extend(Cesium.viewerCesiumInspectorMixin);
 //viewer.scene.primitives.add(Cesium.createOsmBuildings());
-let swisstlm3d = viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
-    url : 'https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.swisstlm3d.3d/20201020/tileset.json'
-}));
 
-let swissnames3d = viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
-    url: 'https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.swissnames3d.3d/20180716/tileset.json'
-}));
+// This is used to display swisstlm3D features (such as buildings or trees)
+const TLMFeatures = false;
+if (TLMFeatures) {
+    let swisstlm3d = viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
+        url : 'https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.swisstlm3d.3d/20201020/tileset.json'
+    }));
 
-let vegetation3d = viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
-    url : 'https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.vegetation.3d/20190313/tileset.json'
-}));
+    let swissnames3d = viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
+        url: 'https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.swissnames3d.3d/20180716/tileset.json'
+    }));
+
+    let vegetation3d = viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
+        url : 'https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.vegetation.3d/20190313/tileset.json'
+    }));
+}
 
 // Globally scoped constants about the environment
 const scene = viewer.scene;
@@ -103,7 +108,7 @@ canvas.onclick = function() {
     canvas.focus();
 };
 
-let trig_sscc = false; // lock camera
+let trig_sscc = false; // lock camera, sscc is the instance of the scene.screenSpaceCameraController object;
 sscc.enableRotate = trig_sscc;
 sscc.enableTranslate = trig_sscc;
 sscc.enableZoom = trig_sscc;
@@ -157,7 +162,7 @@ const flags = {
     moveRight: false
 };
 
-// Load GEOJSON feature of the image frame from file
+// Load GEOJSON feature of the image frame from a GEOJSON file
 const feat_file = './geojson/25443.geojson';
 
 // Convenience functions:
@@ -172,7 +177,7 @@ const transform3DPointArrayToCartesian = (pointArray1, pointArray2) => {
     ])
 }
 
-// Fetch the image frame GEOJSON file
+// Fetch the image frame from the GEOJSON file
 const fetchFile = async () => {
     let res = await fetch(feat_file);
     let feat = await res.json();
@@ -180,11 +185,14 @@ const fetchFile = async () => {
 }
 
 
-// Call of the main function only once the file has been loaded
+// Call of the main() function only once the GEOJSON file has been loaded
 fetchFile().then(feat =>  {
     main(feat)
 });
 
+/* GeoPose class is used to store the camera position, the image center position
+and the 3 orientation angles. Positions are either given as an Array or a Cartesian3
+*/
 class GeoPose {
     constructor(feat) {
         // This is the physical image center; it comes from the feature properties
@@ -239,6 +247,10 @@ const flyToModel = (geopose) => {
 };
 
 
+/* ImagePlaneGeometry is a class to describe the geometry of the plane containing
+the image. Therefore, it makes use of a geopose instance for a given image.
+This contains the focalDirection and the focalRay, along with the
+imagePlane and its normal vector, the imagePlaneNormal.*/
 class ImagePlaneGeometry {
     constructor(geopose) {
         this.geopose = geopose;
@@ -316,7 +328,7 @@ class ImagePlaneGeometry {
                     ),
                     width : 4,
                     material : new Cesium.PolylineGlowMaterialProperty({
-                        glowPower : 0.5,
+                        glowPower : 7.5,
                         color : Cesium.Color.LIGHTGREEN
                     })
                 }
