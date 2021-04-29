@@ -175,28 +175,6 @@ fetchFile().then((feat) => {
   main(feat);
 });
 
-/* GeoPose class is used to store the camera position, the image center position
-and the 3 orientation angles. Positions are either given as an Array or a Cartesian3
-*/
-class GeoPose {
-  constructor(feat) {
-    // This is the physical image center; it comes from the feature properties
-    this.imagePhysicalCenterArray = feat.features[0].properties.imageCenter.split(
-      ","
-    );
-    this.imagePhysicalCenter = transform2DPointArrayToCartesian(
-      this.imagePhysicalCenterArray
-    ); // Cartesian3
-    // This is the camera position, it's not equal to the physical image center
-    this.camPosArray = feat.features[0].properties.camPos.split(",");
-    this.camPos = transform2DPointArrayToCartesian(this.camPosArray); // Cartesian3
-    // orientation angles
-    this.yaw = feat.features[0].properties.yaw;
-    this.pitch = feat.features[0].properties.pitch;
-    this.roll = feat.features[0].properties.roll;
-  }
-}
-
 const goToModel = (geopose) => {
   camera.setView({
     destination: geopose.camPos, // Cartesian3
@@ -218,6 +196,28 @@ const flyToModel = (geopose) => {
     },
   });
 };
+
+/* GeoPose class is used to store the camera position, the image center position
+and the 3 orientation angles. Positions are either given as an Array or a Cartesian3
+*/
+class GeoPose {
+  constructor(feat) {
+    // This is the physical image center; it comes from the feature properties
+    this.imagePhysicalCenterArray = feat.features[0].properties.imageCenter.split(
+      ","
+    );
+    this.imagePhysicalCenter = transform2DPointArrayToCartesian(
+      this.imagePhysicalCenterArray
+    ); // Cartesian3
+    // This is the camera position, it's not equal to the physical image center
+    this.camPosArray = feat.features[0].properties.camPos.split(",");
+    this.camPos = transform2DPointArrayToCartesian(this.camPosArray); // Cartesian3
+    // orientation angles
+    this.yaw = feat.features[0].properties.yaw;
+    this.pitch = feat.features[0].properties.pitch;
+    this.roll = feat.features[0].properties.roll;
+  }
+}
 
 /* ImagePlaneGeometry is a class to describe the geometry of the plane containing
 the image. Therefore, it makes use of a geopose instance for a given image.
@@ -325,10 +325,10 @@ class GlobeIntersection {
       }
 
       /*
-            build arrays for storing the coordinates of the two points.
-            This is for convinience; so that it's simpler to concatenate them
-            hereafter.
-            */
+        build arrays for storing the coordinates of the two points.
+        This is for convenience; so that it's simpler to concatenate them
+        hereafter.
+      */
       this.pZero = [
         Cesium.Math.toDegrees(this.start_rad.longitude),
         Cesium.Math.toDegrees(this.start_rad.latitude),
@@ -508,6 +508,7 @@ const main = (feat) => {
           intersection.ray,
           ImagePlane
         );
+
         // To visualize the clicked point on the image, it's sometimes a bit buggy
         viewer.entities.add({
           name: "pt",
@@ -518,41 +519,51 @@ const main = (feat) => {
           },
         });
 
-        // Fill the array with the clicked points on the image:
+        // Fill arrays with the clicked points on the image and their ground projection points:
         imagePoints.push(pointInImageSpace);
-        // the lastImagePoint may be usefull to be deleted by the user, e.g. using a right clik:
-        let lastImagePoint = imagePoints[imagePoints.length - 1];
-
-        let ptpImage1 = Cesium.Cartographic.fromCartesian(lastImagePoint);
-        ptpImage1 = [
-          Cesium.Math.toDegrees(ptpImage1.longitude),
-          Cesium.Math.toDegrees(ptpImage1.latitude),
-        ];
-
         terrainPoints.push(TerrainPosition);
-        let lastTerrainPoint = terrainPoints[terrainPoints.length - 1];
-        console.log("Last terrainPoints is: ", lastTerrainPoint);
-        let ptp1 = Cesium.Cartographic.fromCartesian(lastTerrainPoint);
-        ptp1 = [
-          Cesium.Math.toDegrees(ptp1.longitude),
-          Cesium.Math.toDegrees(ptp1.latitude),
-        ];
-        console.log("ptp1: ", ptp1);
 
+        // The last clicked point on the image and its ground projection are stored here:
+        let lastImagePoint_ = imagePoints[imagePoints.length - 1];
+        let lastTerrainPoint_ = terrainPoints[terrainPoints.length - 1];
+        let lastImagePoint = Cesium.Cartographic.fromCartesian(lastImagePoint_);
+        let lastTerrainPoint = Cesium.Cartographic.fromCartesian(
+          lastTerrainPoint_
+        );
+
+        /*
+          Build an array for the last clicked image point and its ground projection.
+          TODO: use them to give the user the possibility to deleted them using e.g. a right click.
+        */
+        lastImagePointArray = [
+          Cesium.Math.toDegrees(lastImagePoint.longitude),
+          Cesium.Math.toDegrees(lastImagePoint.latitude),
+        ];
+        lastTerrainPointArray = [
+          Cesium.Math.toDegrees(lastTerrainPoint.longitude),
+          Cesium.Math.toDegrees(lastTerrainPoint.latitude),
+        ];
+
+        // Concatenate consecutive clicked image points into an array starting from the 2nd clicked point:
         if (imagePoints.length >= 2) {
-          let previousImagePoint = imagePoints[imagePoints.length - 2];
-          let ptpImage0 = Cesium.Cartographic.fromCartesian(previousImagePoint);
-          ptpImage0 = [
-            Cesium.Math.toDegrees(ptpImage0.longitude),
-            Cesium.Math.toDegrees(ptpImage0.latitude),
+          let previousImagePoint_ = imagePoints[imagePoints.length - 2];
+          let previousImagePoint_ = Cesium.Cartographic.fromCartesian(
+            previousImagePoint_
+          );
+          previousImagePointArray = [
+            Cesium.Math.toDegrees(previousImagePoint.longitude),
+            Cesium.Math.toDegrees(previousImagePoint.latitude),
           ];
 
-          let arrayImagePoints = [...ptpImage0.concat(ptpImage1)];
+          let imagePointsArray = [
+            ...previousImagePointArray.concat(lastTerrainPointArray),
+          ];
 
+          // Draw a polyline with the image points of the array (not working?):
           polylineImageEntities.push(
             viewer.entities.add({
               polyline: {
-                positions: Cesium.Cartesian3.fromDegreesArray(arrayImagePoints),
+                positions: Cesium.Cartesian3.fromDegreesArray(imagePointsArray),
                 width: 2.0,
                 material: Cesium.Color.LIME,
                 clampToGround: false,
@@ -561,20 +572,28 @@ const main = (feat) => {
           );
         }
 
+        // Concatenate consecutive ground points into an array starting from the 2nd clicked point:
         if (terrainPoints.length >= 2) {
-          let previousTerrainPoint = terrainPoints[terrainPoints.length - 2];
-          let ptp0 = Cesium.Cartographic.fromCartesian(previousTerrainPoint);
-          ptp0 = [
-            Cesium.Math.toDegrees(ptp0.longitude),
-            Cesium.Math.toDegrees(ptp0.latitude),
+          let previousTerrainPoint_ = terrainPoints[terrainPoints.length - 2];
+          let previousTerrainPoint = Cesium.Cartographic.fromCartesian(
+            previousTerrainPoint_
+          );
+          previousTerrainPointArray = [
+            Cesium.Math.toDegrees(previousTerrainPoint.longitude),
+            Cesium.Math.toDegrees(previousTerrainPoint.latitude),
           ];
-          console.log("ptp0: ", ptp0);
-          let arrayPoints = [...ptp0.concat(ptp1)];
-          console.log("arrayPoints: ", arrayPoints);
+
+          let terrainPointsArray = [
+            ...previousTerrainPoint.concat(lastTerrainPointArray),
+          ];
+
+          // Draw a polyline with the ground points of the array:
           polylineEntities.push(
             viewer.entities.add({
               polyline: {
-                positions: Cesium.Cartesian3.fromDegreesArray(arrayPoints),
+                positions: Cesium.Cartesian3.fromDegreesArray(
+                  terrainPointsArray
+                ),
                 width: 4.0,
                 material: Cesium.Color.AQUAMARINE,
                 clampToGround: true,
