@@ -1,9 +1,4 @@
-import {
-  debug,
-  MAPTILER_TOKEN,
-  MAPBOX_TOKEN,
-  CESIUMION_TOKEN,
-} from "./config.js";
+import { debug } from "./config.js";
 
 // Switzerland
 let north = 45.88465;
