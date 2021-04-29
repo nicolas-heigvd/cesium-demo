@@ -219,52 +219,6 @@ class GeoPose {
   }
 }
 
-/* ImagePlaneGeometry is a class to describe the geometry of the plane containing
-the image. Therefore, it makes use of a geopose instance for a given image.
-This contains the focalDirection and the focalRay, along with the
-imagePlane and its normal vector, the imagePlaneNormal.*/
-class ImagePlaneGeometry {
-  constructor(geopose) {
-    this.geopose = geopose;
-    // Declare constants
-    this.focalDirection = new Cesium.Cartesian3();
-    this.imagePlaneNormal = new Cesium.Cartesian3();
-    this.imagePosition = new Cesium.Cartesian3();
-
-    Cesium.Cartesian3.subtract(
-      this.geopose.imagePhysicalCenter, // Cartesian3
-      this.geopose.camPos, // Cartesian3
-      this.focalDirection // result
-    );
-    // Compute the focal ray
-    this.focalRay = new Cesium.Ray(this.geopose.camPos, this.focalDirection);
-    // Get the norm of the focalRay
-    Cesium.Cartesian3.normalize(
-      this.focalDirection,
-      this.imagePlaneNormal // result
-    );
-    // Compute the image plane
-    this.imagePlane = new Cesium.Plane.fromPointNormal(
-      this.geopose.imagePhysicalCenter,
-      this.imagePlaneNormal
-    );
-    // Compute the intersection of the ray with the image plane
-    Cesium.IntersectionTests.rayPlane(
-      this.focalRay,
-      this.imagePlane,
-      this.imagePosition // result
-    );
-
-    if (debug === true) {
-      console.log("focalDirection:", this.focalDirection);
-      console.log("ImagePlaneNormal:", this.imagePlaneNormal);
-      console.log("focalRay:", this.focalRay);
-      console.log("imagePlane:", this.imagePlane);
-      console.log("imagePosition:", this.imagePosition);
-    }
-  }
-}
-
 /* GlobeIntersection is a class to describe the intersection between a line
 defined by two points, p0 and p1, and the globe. p0 is for example defining the
 camera position.
