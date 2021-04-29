@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Use correct character set. -->
+    <meta charset="utf-8" />
+    <!-- Tell IE to use the latest, best version. -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- Make the application on mobile take up the full browser screen and disable user scaling. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
+    />
+    <title>Hello World!</title>
+    <script
+      src="https://use.fontawesome.com/releases/v5.15.1/js/all.js"
+      data-auto-replace-svg="nest"
+    ></script>
+    <script src="../Build/Cesium/Cesium.js"></script>
+    <style>
+      @import url(../Build/Cesium/Widgets/widgets.css);
+      html,
+      body,
+      #cesiumContainer {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      .toolbar-left {
+        display: block;
+        position: absolute;
+        top: 5px;
+        left: 5px;
+      }
+      .container {
+        position: relative;
+        width: 10%;
+        max-width: 80px;
+      }
+
+      .image {
+        position: absolute;
+        bottom: 32px;
+        left: 4px;
+        display: block;
+        width: 100%;
+        opacity: 0.8;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="cesiumContainer"></div>
+    <div class="container">
+      <img class="image" src="GEOWave.png" alt="GEOWave" />
+    </div>
+    <script type="module" src="./geowave/geowave.js" defer></script>
+    <div class="toolbar-left">
+      <button id="btn-lockCam">
+        <i class="fas fa-unlock"></i>&nbsp;UnlockCam
+      </button>
+      <button id="btn-showImage">Toggle images [ON/OFF]</button>
+      <button id="btn-goToModel">GoTo cam pos</button>
+      <button id="btn-flyToModel">FlyTo cam pos</button>
+      <button id="btn-goToHeadingPitchRoll">GoTo YPR</button>
+      <button id="btn-finishDrawing">Finish drawing</button>
+    </div>
+  </body>
+</html>
