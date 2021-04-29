@@ -547,7 +547,7 @@ const main = (feat) => {
         // Concatenate consecutive clicked image points into an array starting from the 2nd clicked point:
         if (imagePoints.length >= 2) {
           let previousImagePoint_ = imagePoints[imagePoints.length - 2];
-          let previousImagePoint_ = Cesium.Cartographic.fromCartesian(
+          let previousImagePoint = Cesium.Cartographic.fromCartesian(
             previousImagePoint_
           );
           previousImagePointArray = [
