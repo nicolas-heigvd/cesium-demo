@@ -154,7 +154,7 @@ const flags = {
 };
 
 // Load GEOJSON feature of the image frame from a GEOJSON file
-const feat_file = "./geojson/25443.geojson";
+const feat_file = "./static/geojson/25443.geojson";
 
 // Convenience functions:
 // Convert point array to Cartesian3
