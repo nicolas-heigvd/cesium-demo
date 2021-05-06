@@ -194,28 +194,10 @@ const fetchURL = async (imageId) => {
   return feat;
 };
 
-const fetchFile = async (imageId) => {
-  // GEOJSON file path (for loading the GEOJSON feature of the image frame)
-  let filePath = `./static/geojson/${imageId}.geojson`;
-  let res = await fetch(filePath);
-  let feat = await res.json();
-  feat.geopose = new GeoPose_geoJSON(feat);
-  return feat;
-};
-
-if (USE_GLTF) {
-  // Call of the main() function only once the glTF object has been loaded
-  fetchURL(imageId).then((feat) => {
-    main(feat);
-  });
-} else {
-  // use the GEOJSON file in the static folder.
-  // Fetch the image frame from the GEOJSON file
-  // Call of the main() function only once the GEOJSON file has been loaded
-  fetchFile(imageId).then((feat) => {
-    main(feat);
-  });
-}
+// Call of the main() function only once the glTF object has been loaded
+fetchURL(imageId).then((feat) => {
+  main(feat);
+});
 
 const goToModel = (geopose) => {
   camera.setView({
@@ -274,25 +256,6 @@ class GeoPose_smapshot {
       Cesium.Math.toDegrees(cartographic.latitude),
       cartographic.height,
     ];
-  }
-}
-
-class GeoPose_geoJSON {
-  constructor(geoJSON) {
-    // This is the physical image center; it comes from the feature properties
-    this.imagePhysicalCenterArray = geoJSON.features[0].properties.imageCenter.split(
-      ","
-    );
-    this.imagePhysicalCenter = transform2DPointArrayToCartesian(
-      this.imagePhysicalCenterArray
-    ); // Cartesian3
-    // This is the camera position, it's not equal to the physical image center
-    this.camPosArray = geoJSON.features[0].properties.camPos.split(",");
-    this.camPos = transform2DPointArrayToCartesian(this.camPosArray); // Cartesian3
-    // orientation angles
-    this.yaw = geoJSON.features[0].properties.yaw;
-    this.pitch = geoJSON.features[0].properties.pitch;
-    this.roll = geoJSON.features[0].properties.roll;
   }
 }
 
@@ -406,7 +369,7 @@ class GlobeIntersection {
   }
 }
 
-// main function, the one that is executed when the GEOJSON file has been successfully loaded:
+// main function, the one that is executed when the GLTF file has been successfully loaded:
 const main = (feat) => {
   document.querySelector("#btn-lockCam").addEventListener("click", lockCam);
 
@@ -461,48 +424,7 @@ const main = (feat) => {
     }
   };
 
-  // Build promise to load the image from the GEOJSON
-  const GeoJSONPromise = async () => {
-    try {
-      const dataSource = await Cesium.GeoJsonDataSource.load(feat, {
-        stroke: Cesium.Color.HOTPINK,
-        fill: new Cesium.Color(1, 0.6, 1, 0.2),
-        strokeWidth: 3,
-      });
-      console.log("feat:", feat);
-      const photoFramePromise = async () => {
-        try {
-          const photoFrame = await viewer.dataSources.add(dataSource);
-          const entities = photoFrame.entities.values;
-          for (let i = 0; i < entities.length; i++) {
-            console.log("i: ", i);
-            const entity = entities[i];
-            if (true === true) {
-              entity.polygon.material = new Cesium.ImageMaterialProperty({
-                // this contains the path to the image file inside a property of the loaded GEOJSON:
-                image: feat.features[0].properties.imagePath,
-                alpha: 0.5,
-              });
-              entity.polygon.outline = true;
-              // Set the color of the GEOJSON feature, namely the frame of the image:
-              entity.polygon.outlineColor = Cesium.Color.ORANGE;
-            }
-            if (DEBUG === true) {
-              console.log("entity keys:", Object.keys(entity));
-              console.log("entity:", entity);
-              console.log("entity polygon:", entity.polygon);
-            }
-          }
-        } catch (err) {
-          console.log("Error: ", err);
-        }
-      };
-      photoFramePromise();
-    } catch (e) {
-      console.log("Error:", e);
-    }
-  };
-  USE_GLTF ? glTFPromise() : GeoJSONPromise(); // run it!
+  glTFPromise(); // run it!
 
   const leftClickHandler = new Cesium.ScreenSpaceEventHandler(canvas);
 
