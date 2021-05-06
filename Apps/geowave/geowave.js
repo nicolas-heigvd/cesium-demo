@@ -403,25 +403,20 @@ const main = (feat) => {
     (not working, use locally downloaded features)
   */
   const glTFPromise = async () => {
-    try {
-      const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(
-        geopose.camPos
-      );
-      const model = await scene.primitives.add(
-        Cesium.Model.fromGltf({
-          id: imageId,
-          url: `./static/gltf/${imageId}.gltf`, //feat.media.model_3d_url,
-          modelMatrix: modelMatrix,
-          scale: 1,
-          incrementallyLoadTextures: false,
-          allowPicking: true,
-          show: true,
-        })
-      );
-      //console.log("feat:", feat);
-    } catch (e) {
-      console.log("Error:", e);
-    }
+    const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(
+      geopose.camPos
+    );
+    const model = await scene.primitives.add(
+      Cesium.Model.fromGltf({
+        id: imageId,
+        url: `./static/gltf/${imageId}.gltf`, //feat.media.model_3d_url,
+        modelMatrix: modelMatrix,
+        scale: 1,
+        incrementallyLoadTextures: false,
+        allowPicking: true,
+        show: true,
+      })
+    );
   };
 
   glTFPromise(); // run it!
