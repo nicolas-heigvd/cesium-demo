@@ -1,4 +1,4 @@
-import { debug } from "./config.js";
+import { DEBUG, USE_GLTF, SMAPSHOT_API_URL, MAPTILER_TOKEN } from "./config.js";
 
 // Switzerland
 let north = 45.88465;
@@ -34,9 +34,8 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
   }),
 
   terrainProvider: new Cesium.CesiumTerrainProvider({
-    //url: `https://api.maptiler.com/tiles/terrain-quantized-mesh/?key=${MAPTILER_TOKEN}`,
-    url:
-      "//3d.geo.admin.ch/1.0.0/ch.swisstopo.terrain.3d/default/20200520/4326/",
+    url: `https://api.maptiler.com/tiles/terrain-quantized-mesh/?key=${MAPTILER_TOKEN}`,
+    //url: "//3d.geo.admin.ch/1.0.0/ch.swisstopo.terrain.3d/default/20200520/4326/",
     //url: `${AUSTRIA_TERRAIN_URL}`,
     availableLevels: [
       0,
@@ -73,7 +72,6 @@ const globe = scene.globe;
 const camera = scene.camera;
 const ellipsoid = globe.ellipsoid;
 const sscc = scene.screenSpaceCameraController;
-console.log("ellipsoid: ", ellipsoid);
 
 /*
 Set Field of View, you may want to adapt the multiplication factor depending on
@@ -96,7 +94,7 @@ sscc.enableLook = trig_sscc;
 
 // Disable the default event handlers
 // Set lock/unlock button function
-console.log("doc:", document.getElementById("btn-lockCam").innerHTM);
+//console.log("doc:", document.getElementById("btn-lockCam").innerHTM);
 const lockCam = () => {
   if (
     document.getElementById("btn-lockCam").innerHTML.includes("&nbsp;LockCam")
@@ -148,9 +146,6 @@ const flags = {
   moveRight: false,
 };
 
-// Load GEOJSON feature of the image frame from a GEOJSON file
-const feat_file = "./static/geojson/25443.geojson";
-
 // Convenience functions:
 // Convert point array to Cartesian3
 const transform2DPointArrayToCartesian = (pointArray) => {
@@ -163,17 +158,64 @@ const transform3DPointArrayToCartesian = (pointArray1, pointArray2) => {
   ]);
 };
 
-// Fetch the image frame from the GEOJSON file
-const fetchFile = async () => {
-  let res = await fetch(feat_file);
+/*
+  Please, choose the ID of the image to fetch using the smapshot API.
+  Of course, this has to be the ID of a georeferenced image having pose information.
+*/
+const imageId = 25443;
+
+/*
+  TODO: The following function (fetchGLTFAndGetCenterArray) is temporary and it will have to be removed!
+  Instead, we should modify the API to provide the coordinates of the image center, e.g. in the "pose" object.
+*/
+const fetchGLTFAndGetCenterArray = async (imageId) => {
+  let filePath = `./static/gltf/${imageId}.gltf`;
+  let res = await fetch(filePath);
   let feat = await res.json();
+  let imageCoordinatesAccessor = feat.accessors.accessor_17;
+  let imageCenterCoordinatesArray = [];
+  // Get the image center in local space
+  for (var i = 0; i < imageCoordinatesAccessor.min.length; i++) {
+    imageCenterCoordinatesArray.push(
+      (imageCoordinatesAccessor.min[i] + imageCoordinatesAccessor.max[i]) / 2
+    );
+  }
+  return imageCenterCoordinatesArray;
+};
+
+const fetchURL = async (imageId) => {
+  let baseURL = `${SMAPSHOT_API_URL}images/${imageId}/attributes`;
+  let res = await fetch(baseURL);
+  let feat = await res.json();
+  // Append the camera space coordinates of the image center to the object.
+  // They are needed in the main function.
+  feat.imageCenterCoordinatesArray = await fetchGLTFAndGetCenterArray(imageId);
+  feat.geopose = new GeoPose_smapshot(feat);
   return feat;
 };
 
-// Call of the main() function only once the GEOJSON file has been loaded
-fetchFile().then((feat) => {
-  main(feat);
-});
+const fetchFile = async (imageId) => {
+  // GEOJSON file path (for loading the GEOJSON feature of the image frame)
+  let filePath = `./static/geojson/${imageId}.geojson`;
+  let res = await fetch(filePath);
+  let feat = await res.json();
+  feat.geopose = new GeoPose_geoJSON(feat);
+  return feat;
+};
+
+if (USE_GLTF) {
+  // Call of the main() function only once the glTF object has been loaded
+  fetchURL(imageId).then((feat) => {
+    main(feat);
+  });
+} else {
+  // use the GEOJSON file in the static folder.
+  // Fetch the image frame from the GEOJSON file
+  // Call of the main() function only once the GEOJSON file has been loaded
+  fetchFile(imageId).then((feat) => {
+    main(feat);
+  });
+}
 
 const goToModel = (geopose) => {
   camera.setView({
@@ -200,22 +242,57 @@ const flyToModel = (geopose) => {
 /* GeoPose class is used to store the camera position, the image center position
 and the 3 orientation angles. Positions are either given as an Array or a Cartesian3
 */
-class GeoPose {
-  constructor(feat) {
+class GeoPose_smapshot {
+  constructor(smapshot_feat) {
+    // This is the camera position, it's not equal to the physical image center
+    this.camPosArray = [
+      smapshot_feat.pose.longitude, // longitude
+      smapshot_feat.pose.latitude, // latitude
+      smapshot_feat.pose.altitude, // altitude
+    ];
+    this.camPos = transform2DPointArrayToCartesian(this.camPosArray); // Cartesian3
+    // orientation angles
+    this.yaw = smapshot_feat.pose.azimuth; // heading
+    this.pitch = smapshot_feat.pose.tilt; // pitch
+    this.roll = smapshot_feat.pose.roll; // roll
+
+    // This is the physical image center;
+    this.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(this.camPos);
+    this.imagePhysicalCenter = Cesium.Matrix4.multiplyByPoint(
+      this.modelMatrix,
+      new Cesium.Cartesian3.fromArray(
+        smapshot_feat.imageCenterCoordinatesArray
+      ),
+      new Cesium.Cartesian3() // result
+    ); // Cartesian3
+    // Cesium.Cartographic.fromCartesian(, ellipsoid)
+    let cartographic = Cesium.Ellipsoid.WGS84.cartesianToCartographic(
+      this.imagePhysicalCenter
+    );
+    this.imagePhysicalCenterArray = [
+      Cesium.Math.toDegrees(cartographic.longitude),
+      Cesium.Math.toDegrees(cartographic.latitude),
+      cartographic.height,
+    ];
+  }
+}
+
+class GeoPose_geoJSON {
+  constructor(geoJSON) {
     // This is the physical image center; it comes from the feature properties
-    this.imagePhysicalCenterArray = feat.features[0].properties.imageCenter.split(
+    this.imagePhysicalCenterArray = geoJSON.features[0].properties.imageCenter.split(
       ","
     );
     this.imagePhysicalCenter = transform2DPointArrayToCartesian(
       this.imagePhysicalCenterArray
     ); // Cartesian3
     // This is the camera position, it's not equal to the physical image center
-    this.camPosArray = feat.features[0].properties.camPos.split(",");
+    this.camPosArray = geoJSON.features[0].properties.camPos.split(",");
     this.camPos = transform2DPointArrayToCartesian(this.camPosArray); // Cartesian3
     // orientation angles
-    this.yaw = feat.features[0].properties.yaw;
-    this.pitch = feat.features[0].properties.pitch;
-    this.roll = feat.features[0].properties.roll;
+    this.yaw = geoJSON.features[0].properties.yaw;
+    this.pitch = geoJSON.features[0].properties.pitch;
+    this.roll = geoJSON.features[0].properties.roll;
   }
 }
 
@@ -246,10 +323,12 @@ class GlobeIntersection {
       this.ray = new Cesium.Ray(this.p0, this.normal);
       this.hitPos = globe.pick(this.ray, scene);
 
-      if (this.hitPos !== undefined && this.hitPos !== null) {
-        console.log("hitPos: ", this.hitPos);
-      } else {
-        console.log("hitPos is null!");
+      if (DEBUG) {
+        if (this.hitPos !== undefined && this.hitPos !== null) {
+          console.log("hitPos: ", this.hitPos);
+        } else {
+          console.log("hitPos is null:", this.hitPos);
+        }
       }
 
       this.start_rad = new Cesium.Cartographic(); // in radians
@@ -274,7 +353,7 @@ class GlobeIntersection {
         this.hitPosWGS84_rad.height
       );
 
-      if (debug === true) {
+      if (DEBUG === true) {
         console.log("hitPosWGS84: ", this.hitPosWGS84);
       }
 
@@ -331,9 +410,9 @@ class GlobeIntersection {
 const main = (feat) => {
   document.querySelector("#btn-lockCam").addEventListener("click", lockCam);
 
-  const geopose = new GeoPose(feat);
+  const geopose = feat.geopose;
 
-  console.log("Document: ", document.querySelector("#btn-goToModel"));
+  //console.log("Document: ", document.querySelector("#btn-goToModel"));
   document.querySelector("#btn-goToModel").addEventListener("click", () => {
     goToModel(geopose);
   });
@@ -355,6 +434,32 @@ const main = (feat) => {
       roll: Cesium.Math.toRadians(0 * geopose.roll), // roll; set to 0
     },
   });
+
+  /*
+    Build promise to load the image from the API if USE_GLTF
+    (not working, use locally downloaded features)
+  */
+  const glTFPromise = async () => {
+    try {
+      const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(
+        geopose.camPos
+      );
+      const model = await scene.primitives.add(
+        Cesium.Model.fromGltf({
+          id: imageId,
+          url: `./static/gltf/${imageId}.gltf`, //feat.media.model_3d_url,
+          modelMatrix: modelMatrix,
+          scale: 1,
+          incrementallyLoadTextures: false,
+          allowPicking: true,
+          show: true,
+        })
+      );
+      //console.log("feat:", feat);
+    } catch (e) {
+      console.log("Error:", e);
+    }
+  };
 
   // Build promise to load the image from the GEOJSON
   const GeoJSONPromise = async () => {
@@ -382,7 +487,7 @@ const main = (feat) => {
               // Set the color of the GEOJSON feature, namely the frame of the image:
               entity.polygon.outlineColor = Cesium.Color.ORANGE;
             }
-            if (debug === true) {
+            if (DEBUG === true) {
               console.log("entity keys:", Object.keys(entity));
               console.log("entity:", entity);
               console.log("entity polygon:", entity.polygon);
@@ -397,7 +502,7 @@ const main = (feat) => {
       console.log("Error:", e);
     }
   };
-  GeoJSONPromise(); // run it!
+  USE_GLTF ? glTFPromise() : GeoJSONPromise(); // run it!
 
   const leftClickHandler = new Cesium.ScreenSpaceEventHandler(canvas);
 
@@ -413,6 +518,7 @@ const main = (feat) => {
       movement.position
     );
     const clickedObject = scene.drillPick(movement.position);
+    console.log("clickedObject:", clickedObject);
     if (
       clickedObject[0] === null ||
       typeof clickedObject[0] === "undefined" ||
@@ -423,7 +529,7 @@ const main = (feat) => {
       const ray = camera.getPickRay(movement.position);
       const TerrainPosition = globe.pick(ray, scene);
 
-      if (debug === true) {
+      if (DEBUG === true) {
         console.log("ray: ", ray);
         console.log("mousePosition: ", mousePosition);
         console.log("clickedObject keys: ", Object.keys(clickedObject[0]));
@@ -446,12 +552,16 @@ const main = (feat) => {
         geopose.camPos,
         geopose.imagePhysicalCenter
       );
-
+      console.log(
+        "intersectionWithImagePhysicalCenter: ",
+        intersectionWithImagePhysicalCenter
+      );
+      // Define the image plane which will be used to draw the points in the image space
       const ImagePlane = Cesium.Plane.fromPointNormal(
         geopose.imagePhysicalCenter,
         intersectionWithImagePhysicalCenter.direction
       );
-
+      console.log("ImagePlane: ", ImagePlane);
       if (TerrainPosition != null || typeof TerrainPosition != "undefined") {
         const intersection = new GlobeIntersection(
           globe,
@@ -489,11 +599,11 @@ const main = (feat) => {
           Build an array for the last clicked image point and its ground projection.
           TODO: use them to give the user the possibility to deleted them using e.g. a right click.
         */
-        lastImagePointArray = [
+        let lastImagePointArray = [
           Cesium.Math.toDegrees(lastImagePoint.longitude),
           Cesium.Math.toDegrees(lastImagePoint.latitude),
         ];
-        lastTerrainPointArray = [
+        let lastTerrainPointArray = [
           Cesium.Math.toDegrees(lastTerrainPoint.longitude),
           Cesium.Math.toDegrees(lastTerrainPoint.latitude),
         ];
@@ -504,7 +614,7 @@ const main = (feat) => {
           let previousImagePoint = Cesium.Cartographic.fromCartesian(
             previousImagePoint_
           );
-          previousImagePointArray = [
+          let previousImagePointArray = [
             Cesium.Math.toDegrees(previousImagePoint.longitude),
             Cesium.Math.toDegrees(previousImagePoint.latitude),
           ];
@@ -532,13 +642,13 @@ const main = (feat) => {
           let previousTerrainPoint = Cesium.Cartographic.fromCartesian(
             previousTerrainPoint_
           );
-          previousTerrainPointArray = [
+          let previousTerrainPointArray = [
             Cesium.Math.toDegrees(previousTerrainPoint.longitude),
             Cesium.Math.toDegrees(previousTerrainPoint.latitude),
           ];
 
           let terrainPointsArray = [
-            ...previousTerrainPoint.concat(lastTerrainPointArray),
+            ...previousTerrainPointArray.concat(lastTerrainPointArray),
           ];
 
           // Draw a polyline with the ground points of the array:
@@ -559,7 +669,7 @@ const main = (feat) => {
         console.log("Error, no terrain here.");
       }
     }
-    if (debug === true) {
+    if (DEBUG === true) {
       console.log("TerrainPoints are: ", terrainPoints);
       console.log("ImagePoints are: ", imagePoints);
     }
