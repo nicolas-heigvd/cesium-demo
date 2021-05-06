@@ -1,4 +1,4 @@
-import { DEBUG, USE_GLTF, SMAPSHOT_API_URL, MAPTILER_TOKEN } from "./config.js";
+import { DEBUG, SMAPSHOT_API_URL } from "./config.js";
 
 // Switzerland
 let north = 45.88465;
@@ -34,9 +34,9 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
   }),
 
   terrainProvider: new Cesium.CesiumTerrainProvider({
-    url: `https://api.maptiler.com/tiles/terrain-quantized-mesh/?key=${MAPTILER_TOKEN}`,
-    //url: "//3d.geo.admin.ch/1.0.0/ch.swisstopo.terrain.3d/default/20200520/4326/",
-    //url: `${AUSTRIA_TERRAIN_URL}`,
+    //url: `https://api.maptiler.com/tiles/terrain-quantized-mesh/?key=${MAPTILER_TOKEN}`,
+    url:
+      "//3d.geo.admin.ch/1.0.0/ch.swisstopo.terrain.3d/default/20200520/4326/",
     availableLevels: [
       0,
       1,
