@@ -1,4 +1,4 @@
-import { debug } from "./config.js";
+import { DEBUG } from "./config.js";
 
 // Switzerland
 let north = 45.88465;
@@ -274,7 +274,7 @@ class GlobeIntersection {
         this.hitPosWGS84_rad.height
       );
 
-      if (debug === true) {
+      if (DEBUG === true) {
         console.log("hitPosWGS84: ", this.hitPosWGS84);
       }
 
@@ -382,7 +382,7 @@ const main = (feat) => {
               // Set the color of the GEOJSON feature, namely the frame of the image:
               entity.polygon.outlineColor = Cesium.Color.ORANGE;
             }
-            if (debug === true) {
+            if (DEBUG === true) {
               console.log("entity keys:", Object.keys(entity));
               console.log("entity:", entity);
               console.log("entity polygon:", entity.polygon);
@@ -423,7 +423,7 @@ const main = (feat) => {
       const ray = camera.getPickRay(movement.position);
       const TerrainPosition = globe.pick(ray, scene);
 
-      if (debug === true) {
+      if (DEBUG === true) {
         console.log("ray: ", ray);
         console.log("mousePosition: ", mousePosition);
         console.log("clickedObject keys: ", Object.keys(clickedObject[0]));
@@ -559,7 +559,7 @@ const main = (feat) => {
         console.log("Error, no terrain here.");
       }
     }
-    if (debug === true) {
+    if (DEBUG === true) {
       console.log("TerrainPoints are: ", terrainPoints);
       console.log("ImagePoints are: ", imagePoints);
     }
